@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TaskMaster</title>
+    <style>
+        * {
+            padding: 0;
+            margin: 0;
+            box-sizing: border-box;
+        }
+
+        h1 {
+            margin-top: 20px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        body {
+            background-color: aqua;
+        }
+
+        #assignTask {
+            width: 90vw;
+            height: 150px;
+            margin: auto;
+            display: flex;
+            justify-content: space-evenly;
+            align-items: center;
+        }
+
+        #assignTask input {
+            height: 80%;
+            width: 30%;
+            border-radius: 15%;
+        }
+
+        #assignTask button {
+            background-color: blueviolet;
+            width: 10%;
+            height: 80%;
+            border-radius: 15%;
+        }
+
+        #assignTask #filtering-Bar {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        table {
+            width: 100vw;
+        }
+
+        table thead td {
+            text-align: center;
+        }
+
+        table tbody tr td {
+            text-align: center;
+        }
+
+        table tbody tr td button {
+            border-radius: 15%;
+            background-color: blueviolet;
+        }
+
+        @media (max-width:780px) {
+            #assignTask {
+                width: 99vw;
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+            }
+
+            #assignTask input {
+                width: 20%;
+            }
+
+            #assignTask button {
+                width: 10%;
+                height: 80%;
+            }
+
+        }
+    </style>
+</head>
+
+<body onload="renderTable(getTasksFromLocalStorage())">
+    <h1>Wellcome to the TaskMaster</h1>
+    <hr>
+    <div id="assignTask">
+        <input placeholder="Enter Task" type="text" name="" id="newTask">
+        <input type="datetime-local" name="" id="destenationTime">
+        <button id="addTask">Add Task</button>
+
+        <div id="filtering-Bar">
+            <label for="">only uncomlete Task/s: </label>
+            <input type="checkbox" name="" id="sortArray">
+        </div>
+    </div>
+    <br>
+    <hr>
+
+
+    <table border="1">
+        <thead border="1">
+            <td>TASK</td>
+            <td>Done</td>
+            <td>Delete</td>
+            <td>Update Name</td>
+
+            <td>deadline</td>
+        </thead>
+        <tbody id="taskTable"></tbody>
+    </table>
+
+
+
+
+    <script>
+
+
+        class Task {
+            //constarctor of each Task - by default the task is not complete nor does the deadline arrived
+            constructor(destenationTime, name, complete = false, timesUp = false) {
+                this.id = this.generateId()
+                this.name = name
+                this.complete = complete
+                this.deadline = destenationTime
+                this.timesUp = timesUp
+            }
+            //random number that have low chance to repeat itself
+            generateId() {
+                const time = new Date().getTime()
+                return Math.floor(Math.random() * time)
+            }
+
+        }
+        let tasks = []
+    </script>
+    <script>
+        //for the function sortTasksByCompleted - makes it responsive to the user for the times he wants to see the tasks sorted or not
+        let sortBool = false
+        //catch html elements
+        const taskButton = document.getElementById('addTask')
+        const taskTable = document.getElementById('taskTable')
+        const sortButton = document.getElementById('sortArray')
+
+        //adds events to sorting checkbox and adding task button
+        sortButton.addEventListener('click', sortTasksByCompleted)
+        taskButton.addEventListener('click', addNewTask)
+
+
+
+        // reusable function to check validation 
+        function validateInput(input) {
+            //tasks are being saved on local storage
+            tasks = getTasksFromLocalStorage()
+
+            //run on a loop to check if the task already exist
+            for (let i = 0; i < tasks.length; i++) {
+                if (input.trim() == tasks[i].name.trim()) {
+
+                    alert('You already have that task')
+                    return null
+                }
+            }
+            //run on a loop through the input and check id there's a number preventing spaces
+            for (let j = 0; j < input.length; j++) {
+                if (!isNaN(input.charAt(j)) && !(input.charAt(j) === " ")) {
+                    alert('Task cant contain a Number')
+                    return null
+                }
+            }
+
+            //check if the user wrote anything
+            if (!input) {
+                alert('You didnt write any thing')
+                return null
+            }
+            return true
+        }
+
+        function addNewTask() {
+            //tasks are being saved on local storage
+            tasks = getTasksFromLocalStorage()
+            //catching html elemnts value
+            const destenationTimeElement = document.getElementById('destenationTime').value;
+            const taskText = document.getElementById('newTask').value
+            //function that check there was give a destenation time-if not returns undifined
+            //if there is a time - builds an object from the string
+            const destenationTime = processTime(destenationTimeElement)
+            //validating input
+            const validInput = validateInput(taskText)
+            if (validInput) {
+                //input valid
+
+                //builds new class for a Task,giving destenation time even if undifined
+                const task = new Task(destenationTime, taskText)
+                //adds the task to the array
+                tasks.push(task)
+                //and save the array at the local storage
+                window.localStorage.setItem('tasks', JSON.stringify(tasks));
+                //function that check if the destenation time has already come, if so - colors with red
+                //(sometimes our tasks is already needs to be done and thats why I allow to add the func)
+                checkDeadline()
+                //re-render table
+                renderTable(tasks)
+
+            } else {
+                //input invalid - stops the function
+                return
+            }
+
+        }
+
+        function renderTable(arrayData) {
+            //the variable which later will contain the html for the Task
+            let htmlText = ''
+            //the variable which checks if the timesup on the Task is true - if so it will red the text
+            let taskTimesUp
+            //the variable which checks if there is a deadline - if so it show it on the html
+            let taskDeadline
+            //the variable which checks if the task is completed - if so it show it on the html
+            let taskBool;
+            //calling the function again
+            checkDeadline()
+            //runs on a loop on the array we want to render and allows me to adress each task
+            arrayData.forEach(task => {
+
+                //did I comlete the Task
+                if (task.complete) {
+                    taskBool = 'checked="checked"'
+                } else {
+                    taskBool = ''
+                }
+
+                //do I have a dead line
+                if (task.deadline) {
+                    taskDeadline = `
+                    <span>${task.deadline.day}<span/>
+                    /
+                    <span>${task.deadline.month}<span/> 
+                    /
+                    <span>${task.deadline.year}<span/> 
+                        <br>
+                    <span>${task.deadline.hour}<span/> 
+                        :
+                    <span>${task.deadline.miniute}<span/> `
+                    //did i ran out of time
+                    if (task.timesUp === true) {
+                        taskTimesUp = `style="color: red;"`
+                    } else {
+                        taskTimesUp = ` `
+                    }
+                } else {
+
+                    taskTimesUp = ` `
+                    taskDeadline = 'no deadline'
+                }
+                htmlText += `<tr ${taskTimesUp}>
+                <td >${task.name}</td>
+                <td><input ${taskBool} onclick="completeTask(${task.id})"type="checkbox" name="" id="checkbox"></td>
+                <td><button  onclick="deleteTask(${task.id})"type="checkbox" name="" id="${task.id}">Delete TASK</button></td>
+                <td><input id="newName${task.id}" type="text">
+                    <button onclick="reNameTask(${task.id})">UpdateTask</button></td>
+                <td>${taskDeadline}</td>
+             
+                </tr>`
+            })
+            //check the deadline again
+            checkDeadline()
+            //inject the variable with all the tags to the element
+            taskTable.innerHTML = htmlText;
+        }
+
+        //function that gets an id and complete / uncomplete a Task
+        function completeTask(id) {
+            //tasks are being saved on local storage
+            tasks = JSON.parse(localStorage.getItem("tasks") || "[]");
+
+            for (let i = 0; i < tasks.length; i++) {
+                // runs in a loop and find the wanted task's index - then giving to the compete key in the task a true\false value(toggle)
+                if (tasks[i].id == id) {
+                    if (tasks[i].complete == true) {
+                        tasks[i].complete = false
+                    } else {
+                        tasks[i].complete = true
+
+                    }
+                }
+            }
+            //save on the local storage
+            window.localStorage.setItem('tasks', JSON.stringify(tasks));
+            //call the function again
+            checkDeadline()
+            //re-render table
+            renderTable(tasks);
+        }
+
+
+        function reNameTask(id) {
+            //find the specific field I want
+            const idToFind = `newName${id}`
+            const newTask = document.getElementById(`${idToFind}`).value;
+            //validate change of name
+            const validInput = validateInput(newTask)
+            if (!validInput) {
+                return
+            }
+            //get premission from user to change task name
+            const userApproval = confirm(` Are you sure you would like to change task name to "${newTask}"`)
+            if (userApproval) {
+                //tasks are being saved on local storage
+                tasks = JSON.parse(localStorage.getItem("tasks") || "[]");
+                for (let i = 0; i < tasks.length; i++) {
+                    if (tasks[i].id == id) {
+                        //there is a deadline 
+                        if (tasks[i].deadline) {
+                            //deleting our object we want to change and adds the same object with a different name
+                            tasks.splice(i, 1, {
+                                id: tasks[i].id, name: newTask, complete: tasks[i].complete, deadline: {
+                                    year: tasks[i].deadline.year,
+                                    month: tasks[i].deadline.month,
+                                    day: tasks[i].deadline.day,
+                                    hour: tasks[i].deadline.hour,
+                                    miniute: tasks[i].deadline.miniute,
+                                }
+                            })
+
+                        } else {
+                            //there is no deadline
+                            tasks.splice(i, 1, { id: tasks[i].id, name: newTask, complete: tasks[i].complete, deadline: undefined })
+                        }
+                    }
+                }
+            }
+            //saves on the local storage
+            window.localStorage.setItem('tasks', JSON.stringify(tasks));
+
+            //call the function again
+            checkDeadline()
+            //re render table
+            renderTable(tasks);
+        }
+
+        function deleteTask(id) {
+            //tasks are being saved on local storage
+            tasks = JSON.parse(localStorage.getItem("tasks") || "[]");
+            //runs on a loop to find the task that with the id got from the function calling
+            for (let i = 0; i < tasks.length; i++) {
+                if (tasks[i].id == id) {
+                    //getting permission from user to delete Task 
+                    const userApproval = confirm(`Are You Sure you would like to delete Task"${tasks[i].name}"?`);
+                    if (userApproval) {
+                        //deleting task
+                        tasks.splice(i, 1)
+                    } else {
+                        //didnt find task stop function
+                        return
+                    }
+                }
+            }
+            //save on local storage
+            window.localStorage.setItem('tasks', JSON.stringify(tasks));
+            //re-render table
+            renderTable(tasks);
+        }
+
+        function processTime(input) {
+            // in this case, destination wasnt provided
+            if (input == '') {
+                return undefined
+            }
+
+
+            //divide to 2 arraies
+            //1 - exact time
+            //2 - exact date
+            const fullTime = input.split('T')
+            //dividing time to hour and miniutes
+            const time = fullTime[1].split(':')
+            //dividing date to year,month and day
+            const date = fullTime[0].split('-')
+
+            //return the time object
+            return {
+                year: date[0],
+                month: date[1],
+                day: date[2],
+                hour: time[0],
+                miniute: time[1],
+            }
+        }
+
+
+        function getTasksFromLocalStorage() {
+            tasks = JSON.parse(localStorage.getItem("tasks") || "[]");
+            return tasks
+        }
+
+        function checkDeadline() {
+            //tasks are being saved on local storage
+            tasks = getTasksFromLocalStorage()
+            //getting the date right now
+            let nowFullTime = new Date
+            //object that contains all the now date, divided to time units
+            const nowDate = {
+                yearNow: nowFullTime.getFullYear(),
+                monthNow: nowFullTime.getMonth() + 1,
+                dayNow: nowFullTime.getDate(),
+                hourNow: nowFullTime.getHours(),
+                miniuteNow: nowFullTime.getMinutes(),
+            }
+
+            //runs on the tasks array
+            for (let i = 0; i < tasks.length; i++) {
+                //task does have adeadline
+                if (tasks[i].deadline) {
+
+                    const currentTaskDeadline = tasks[i].deadline
+
+                    //more than 1 day late
+                    if (nowDate.dayNow > parseInt(currentTaskDeadline.day) || nowDate.monthNow > parseInt(currentTaskDeadline.month) || nowDate.yearNow > parseInt(currentTaskDeadline.year)) {
+                        tasks[i].timesUp = true
+                    }
+
+
+                    //at the deadline day - check the time
+                    if (nowDate.dayNow == parseInt(currentTaskDeadline.day) && nowDate.monthNow == parseInt(currentTaskDeadline.month) && nowDate.yearNow == parseInt(currentTaskDeadline.year)) {
+
+                        //checking time
+                        if (nowDate.miniuteNow >= parseInt(currentTaskDeadline.miniute) && nowDate.hourNow >= parseInt(currentTaskDeadline.hour)) {
+                            // the time is up now
+                            tasks[i].timesUp = true
+                        } else {
+                            // the time is'nt up now
+                            tasks[i].timesUp = false
+
+                        }
+                    }
+                }
+                //save on local storage
+                window.localStorage.setItem('tasks', JSON.stringify(tasks));
+            }
+        }
+
+        //function using the filter method to find al tasks tha isnt completed and then re render
+        //if the bool is already true it mens that we filter the array and now the user wants to see the whole tasks array
+        function sortTasksByCompleted() {
+            if (!sortBool) {
+                sortBool = true
+                tasks = getTasksFromLocalStorage()
+                const resArr = tasks.filter(task => task.complete == false)
+                renderTable(resArr)
+            } else {
+                sortBool = false
+                renderTable(tasks)
+            }
+        }
+    </script>
+</body>
+
+</html>
