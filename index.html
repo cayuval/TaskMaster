@@ -20,7 +20,10 @@
         }
 
         body {
-            background-color: aqua;
+            background: rgb(38, 230, 8);
+            background: linear-gradient(45deg, rgba(38, 230, 8, 1) 0%, rgba(242, 15, 15, 1) 41%, rgba(242, 204, 15, 1) 60%, rgba(19, 65, 247, 1) 90%);
+            width: 100vw;
+            height: 100vh;
         }
 
         #assignTask {
@@ -52,6 +55,8 @@
         }
 
         table {
+            text-align: center;
+            margin: auto;
             width: 100vw;
         }
 
@@ -69,21 +74,51 @@
         }
 
         @media (max-width:780px) {
+            body {
+                background: rgb(38, 230, 8);
+                background: linear-gradient(45deg, rgba(38, 230, 8, 1) 0%, rgba(242, 15, 15, 1) 41%, rgba(242, 204, 15, 1) 60%, rgba(19, 65, 247, 1) 90%);
+                width: 100vw;
+                height: 100vh;
+            }
+
+
             #assignTask {
                 width: 99vw;
                 display: flex;
-                justify-content: space-between;
+                justify-content: space-evenly;
                 align-items: center;
             }
 
             #assignTask input {
-                width: 20%;
+                width: 25%;
             }
 
             #assignTask button {
-                width: 10%;
+                width: 12.5%;
                 height: 80%;
             }
+
+            #assignTask #filtering-Bar {
+                width: 10%;
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                flex-direction: column;
+            }
+
+            #assignTask #filtering-Bar label {
+                text-align: center;
+            }
+
+            #assignTask #filtering-Bar input {
+                text-align: center;
+                width: 50px;
+            }
+
+            table tbody tr td input {
+                width: 90%;
+            }
+
 
         }
     </style>
@@ -93,12 +128,13 @@
     <h1>Wellcome to the TaskMaster</h1>
     <hr>
     <div id="assignTask">
-        <input placeholder="Enter Task" type="text" name="" id="newTask">
+        <input placeholder="Enter/search Task" type="text" name="" id="newTask">
         <input type="datetime-local" name="" id="destenationTime">
         <button id="addTask">Add Task</button>
 
         <div id="filtering-Bar">
-            <label for="">only uncomlete Task/s: </label>
+            <label for="">Only uncomleted Task/s: </label>
+            <br>
             <input type="checkbox" name="" id="sortArray">
         </div>
     </div>
@@ -153,6 +189,7 @@
         //adds events to sorting checkbox and adding task button
         sortButton.addEventListener('click', sortTasksByCompleted)
         taskButton.addEventListener('click', addNewTask)
+        document.getElementById('newTask').addEventListener('keyup', searchTask)
 
 
 
@@ -298,6 +335,9 @@
             window.localStorage.setItem('tasks', JSON.stringify(tasks));
             //call the function again
             checkDeadline()
+            if (sortBool) {
+                return
+            }
             //re-render table
             renderTable(tasks);
         }
@@ -328,13 +368,13 @@
                                     month: tasks[i].deadline.month,
                                     day: tasks[i].deadline.day,
                                     hour: tasks[i].deadline.hour,
-                                    miniute: tasks[i].deadline.miniute,
+                                    miniute: tasks[i].deadline.miniute, timesUp: tasks[i].timesUp
                                 }
                             })
 
                         } else {
                             //there is no deadline
-                            tasks.splice(i, 1, { id: tasks[i].id, name: newTask, complete: tasks[i].complete, deadline: undefined })
+                            tasks.splice(i, 1, { id: tasks[i].id, name: newTask, complete: tasks[i].complete, deadline: undefined, timesUp: false })
                         }
                     }
                 }
@@ -419,34 +459,35 @@
 
             //runs on the tasks array
             for (let i = 0; i < tasks.length; i++) {
-                //task does have adeadline
+                //task does have a deadline
                 if (tasks[i].deadline) {
 
                     const currentTaskDeadline = tasks[i].deadline
 
-                    //more than 1 day late
-                    if (nowDate.dayNow > parseInt(currentTaskDeadline.day) || nowDate.monthNow > parseInt(currentTaskDeadline.month) || nowDate.yearNow > parseInt(currentTaskDeadline.year)) {
+                    if (nowDate.yearNow > parseInt(currentTaskDeadline.year)) {
+                        //years late
                         tasks[i].timesUp = true
+                    } else if (nowDate.yearNow == parseInt(currentTaskDeadline.year) && nowDate.monthNow > parseInt(currentTaskDeadline.month)) {
+                        //month/s late
+                        tasks[i].timesUp = true
+                    } else if (nowDate.yearNow == parseInt(currentTaskDeadline.year) && nowDate.monthNow == parseInt(currentTaskDeadline.month) && nowDate.dayNow > parseInt(currentTaskDeadline.day)) {
+                        //days late
+                        tasks[i].timesUp = true
+                    } else if (nowDate.yearNow == parseInt(currentTaskDeadline.year) && nowDate.monthNow == parseInt(currentTaskDeadline.month) && nowDate.dayNow == parseInt(currentTaskDeadline.day) && nowDate.hourNow > parseInt(currentTaskDeadline.hour)) {
+                        //hours late
+                        tasks[i].timesUp = true
+                    } else if (nowDate.yearNow == parseInt(currentTaskDeadline.year) && nowDate.monthNow == parseInt(currentTaskDeadline.month) && nowDate.dayNow == parseInt(currentTaskDeadline.day) && nowDate.hourNow == parseInt(currentTaskDeadline.hour) && nowDate.miniuteNow >= parseInt(currentTaskDeadline.miniute)) {
+                        //miniute late or equel
+                        tasks[i].timesUp = true
+                    } else {
+                        //not late
+                        tasks[i].timesUp = false
                     }
 
-
-                    //at the deadline day - check the time
-                    if (nowDate.dayNow == parseInt(currentTaskDeadline.day) && nowDate.monthNow == parseInt(currentTaskDeadline.month) && nowDate.yearNow == parseInt(currentTaskDeadline.year)) {
-
-                        //checking time
-                        if (nowDate.miniuteNow >= parseInt(currentTaskDeadline.miniute) && nowDate.hourNow >= parseInt(currentTaskDeadline.hour)) {
-                            // the time is up now
-                            tasks[i].timesUp = true
-                        } else {
-                            // the time is'nt up now
-                            tasks[i].timesUp = false
-
-                        }
-                    }
                 }
-                //save on local storage
-                window.localStorage.setItem('tasks', JSON.stringify(tasks));
             }
+            //save on local storage
+            window.localStorage.setItem('tasks', JSON.stringify(tasks));
         }
 
         //function using the filter method to find al tasks tha isnt completed and then re render
@@ -461,6 +502,13 @@
                 sortBool = false
                 renderTable(tasks)
             }
+        }
+
+        function searchTask() {
+            tasks = getTasksFromLocalStorage()
+            const taskText = document.getElementById('newTask').value
+            let resArr = tasks.filter(task => task.name.indexOf(taskText) > -1)
+            renderTable(resArr)
         }
     </script>
 </body>
